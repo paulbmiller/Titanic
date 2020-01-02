@@ -4,4 +4,4 @@ This is my approach to the "Titanic: Machine Learning from Disaster" competition
 
 It uses Random Forest Regression to predict the missing values for the age of some passengers and then uses a feed-forward Neural Network with Dropout layers.
 
-It also extracts the number of cabins for passengers and assumes NaN values represent only one cabin.
+It also extracts the number of cabins for passengers, assumes NaN values represent only one cabin, uses Qcut to bin age and fare data into categorical variables.
