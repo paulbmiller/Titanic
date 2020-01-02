@@ -78,11 +78,65 @@ def Preprocess(mb_size):
     nan_ages = test_set.Age.isna()
     bias_na = nan_ages * bias_na
 
+    # Get the number of cabins and suppose NaN values mean 1 cabin
+    training_set.Cabin = training_set.Cabin.fillna(1)
+    training_set.loc[training_set.Cabin != 1, 'Cabin'] = \
+        training_set.loc[
+            training_set.Cabin != 1, 'Cabin'
+            ].apply(lambda x: len(x.split(' ')))
+    test_set.Cabin = test_set.Cabin.fillna(1)
+    test_set.loc[test_set.Cabin != 1, 'Cabin'] = \
+        test_set.loc[test_set.Cabin != 1, 'Cabin'].apply(lambda x:
+                                                         len(x.split(' ')))
+
     # Replace the fare nan values by the mean fare of 3rd class (which is
-    # sufficient because there is only one from 3rd class)
-    mean_fare = training_set.Fare[training_set.Pclass == 3].mean()
-    training_set.loc[training_set.Fare.isna(), 'Fare'] = mean_fare
-    test_set.loc[test_set.Fare.isna(), 'Fare'] = mean_fare
+    # sufficient because there is only one from 3rd class) and replace the 0
+    # values by the mean of values of that class times the number of cabins
+    mean_fare1 = training_set.Fare[
+        training_set.Pclass == 1
+        ][training_set.Cabin == 1].mean()
+    mean_fare2 = training_set.Fare[
+        training_set.Pclass == 2
+        ][training_set.Cabin == 1].mean()
+    mean_fare3 = training_set.Fare[
+        training_set.Pclass == 3
+        ][training_set.Cabin == 1].mean()
+    training_set.Fare.fillna(0, inplace=True)
+    test_set.Fare.fillna(0, inplace=True)
+    train0 = training_set.index[training_set.loc[:, 'Fare'] == 0].tolist()
+    test0 = test_set.index[test_set.loc[:, 'Fare'] == 0].tolist()
+    for i in train0:
+        if training_set.loc[i, 'Pclass'] == 1:
+            training_set.loc[i, 'Fare'] = \
+                mean_fare1 * training_set.loc[i, 'Cabin']
+        elif training_set.loc[i, 'Pclass'] == 2:
+            training_set.loc[i, 'Fare'] = \
+                mean_fare2 * training_set.loc[i, 'Cabin']
+        else:
+            training_set.loc[i, 'Fare'] = \
+                mean_fare3 * training_set.loc[i, 'Cabin']
+    for i in test0:
+        if test_set.loc[i, 'Pclass'] == 1:
+            test_set.loc[i, 'Fare'] = \
+                mean_fare1 * test_set.loc[i, 'Cabin']
+        elif test_set.loc[i, 'Pclass'] == 2:
+            test_set.loc[i, 'Fare'] = \
+                mean_fare2 * test_set.loc[i, 'Cabin']
+        else:
+            test_set.loc[i, 'Fare'] = \
+                mean_fare3 * test_set.loc[i, 'Cabin']
+    training_set.loc[:, 'Fare'], bins = pd.qcut(training_set.Fare, 5,
+                                                labels=False, retbins=True)
+    bins[0] = 0.
+    bins[5] = 1000.
+    test_set.loc[:, 'Fare'] = pd.cut(test_set.Fare, bins=bins,
+                                     labels=False)
+    test_set.Fare = test_set.Fare.astype(int)
+
+    training_set = pd.get_dummies(training_set, columns=['Fare'])
+    test_set = pd.get_dummies(test_set, columns=['Fare'])
+    training_set = training_set.drop('Fare_4', axis=1)
+    test_set = test_set.drop('Fare_4', axis=1)
 
     # Get the training set targets
     y_train = training_set.Survived
@@ -132,17 +186,6 @@ def Preprocess(mb_size):
     training_set = training_set.drop('Pclass_3', axis=1)
     test_set = test_set.drop('Pclass_3', axis=1)
 
-    # Get the number of cabins and suppose NaN values mean 1 cabin
-    training_set.Cabin = training_set.Cabin.fillna(1)
-    training_set.loc[training_set.Cabin != 1, 'Cabin'] = \
-        training_set.loc[
-            training_set.Cabin != 1, 'Cabin'
-            ].apply(lambda x: len(x.split(' ')))
-    test_set.Cabin = test_set.Cabin.fillna(1)
-    test_set.loc[test_set.Cabin != 1, 'Cabin'] = \
-        test_set.loc[test_set.Cabin != 1, 'Cabin'].apply(lambda x:
-                                                         len(x.split(' ')))
-
     # Drop the passenger id and ticket columns
     training_set = training_set.drop('PassengerId', axis=1)
     training_set = training_set.drop('Ticket', axis=1)
@@ -167,11 +210,13 @@ def Preprocess(mb_size):
             ].loc[:, test_set.columns != 'Age'])
 
     # Scale Age and Fare columns
-    sc = StandardScaler()
-    training_set.loc[:, ['Age', 'Fare']] = \
-        sc.fit_transform(training_set.loc[:, ['Age', 'Fare']])
-    test_set.loc[:, ['Age', 'Fare']] = \
-        sc.transform(test_set.loc[:, ['Age', 'Fare']])
+    training_set.loc[:, 'Age'], bins = pd.qcut(training_set.Age, 10,
+                                               labels=False, retbins=True)
+    bins[0] = 0.
+    bins[10] = 150.0
+    test_set.loc[:, 'Age'] = pd.cut(test_set.Age, bins=bins, labels=False)
+    training_set.fillna(10, inplace=True)
+    test_set.fillna(10, inplace=True)
 
     # Create both dataloaders
     train = TensorDataset(torch.Tensor(np.array(training_set)),
