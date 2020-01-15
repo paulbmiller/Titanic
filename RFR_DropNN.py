@@ -252,8 +252,8 @@ if __name__ == '__main__':
     subs = 3
     path = "F:\\Users\\SilentFart\\Documents\\PythonProjects\\Titanic\\subs\\"
     for i in range(subs):
-        train_loader, test_loader, penalty_for_missing_age, X_train, y_train =\
-            Preprocess(mb_size)
+        train_loader, test_loader, penalty_for_missing_age, X_train, y_train,
+        X_test = Preprocess(mb_size)
         net = Net(in_channels, first, second, third, 0.0, 0.2, 0.2).to(device)
         optim = torch.optim.Adam(net.parameters(), lr=lr)
         train(net, epochs, optim, train_loader)
