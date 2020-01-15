@@ -225,4 +225,4 @@ def Preprocess(mb_size):
     test_loader = DataLoader(TensorDataset(torch.Tensor(np.array(test_set))),
                              batch_size=mb_size, shuffle=False)
 
-    return train_loader, test_loader, bias_na, training_set, y_train
+    return train_loader, test_loader, bias_na, training_set, y_train, test_set
