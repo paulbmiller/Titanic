@@ -36,7 +36,7 @@ from torch.utils.data import DataLoader, TensorDataset
 #              - S = Southampton
 
 
-def Preprocess(mb_size):
+def Preprocess():
     """
 
     Parameters
@@ -218,11 +218,4 @@ def Preprocess(mb_size):
     training_set.fillna(10, inplace=True)
     test_set.fillna(10, inplace=True)
 
-    # Create both dataloaders
-    train = TensorDataset(torch.Tensor(np.array(training_set)),
-                          torch.Tensor(np.array(y_train)))
-    train_loader = DataLoader(train, batch_size=mb_size, shuffle=True)
-    test_loader = DataLoader(TensorDataset(torch.Tensor(np.array(test_set))),
-                             batch_size=mb_size, shuffle=False)
-
-    return train_loader, test_loader, bias_na, training_set, y_train, test_set
+    return bias_na, training_set, y_train, test_set

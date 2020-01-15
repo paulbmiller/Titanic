@@ -53,6 +53,16 @@ class Net(nn.Module):
         return self.model(x)
 
 
+def create_dataloaders(mb_size, X_train, y_train, X_test):
+    # Create both dataloaders
+    train = TensorDataset(torch.Tensor(np.array(X_train)),
+                          torch.Tensor(np.array(y_train)))
+    train_loader = DataLoader(train, batch_size=mb_size, shuffle=True)
+    test_loader = DataLoader(TensorDataset(torch.Tensor(np.array(X_test))),
+                             batch_size=mb_size, shuffle=False)
+    return train_loader, test_loader
+
+
 def train(net, epochs, optim, train_loader):
     net.train()
     for epoch in tqdm(range(1, epochs+1), desc='Training', unit=' ep'):
@@ -76,30 +86,6 @@ def train(net, epochs, optim, train_loader):
                 if proj[j] == survived_bool[j].cpu():
                     right_predictions += 1
         # acc = right_predictions / training_size
-
-
-def eval(net):
-    net.eval()
-    running_loss = 0.0
-    right_predictions = 0
-    for i, (data, survived) in enumerate(train_loader):
-        data = data.to(device)
-        survived = survived.to(device)
-        mb = data.size(0)
-        y_pred = net(data).reshape(-1)
-
-        loss = F.binary_cross_entropy(y_pred, survived)
-        running_loss += loss.item()
-
-        survived_bool = survived == 1
-        proj = y_pred.cpu() > 0.5
-        for j in range(mb):
-            if proj[j] == survived_bool[j].cpu():
-                right_predictions += 1
-
-    acc = right_predictions / test_size
-    print('Test epoch, loss: {}, accuracy: {}'.format(running_loss/(i+1),
-                                                      acc))
 
 
 def cross_val(net, opt, eps, X_train, y_train, k_folds, init_state,
@@ -236,8 +222,9 @@ if __name__ == '__main__':
             [128, 64, 32, 0, 0, 0]
             ]
     for mb_size in mb_sizes:
-        train_loader, test_loader, penalty_for_missing_age, X_train,\
-            y_train = Preprocess(mb_size)
+            penalty_for_missing_age, X_train, y_train = Preprocess()
+            train_loader, test_loader = create_dataloaders(mb_size, X_train,
+                                                           y_train, X_test)
         for lr in lr_list:
             for epochs in epochs_list:
                 for opt in optims:
@@ -248,12 +235,13 @@ if __name__ == '__main__':
     accs.sort(key=sort_accs, reverse=True)
     """
     # Standard run
-    sub = 37
-    subs = 3
+    sub = 42
+    subs = 1
     path = "F:\\Users\\SilentFart\\Documents\\PythonProjects\\Titanic\\subs\\"
     for i in range(subs):
-        train_loader, test_loader, penalty_for_missing_age, X_train, y_train,
-        X_test = Preprocess(mb_size)
+        penalty_for_missing_age, X_train, y_train, X_test = Preprocess()
+        train_loader, test_loader = create_dataloaders(mb_size, X_train,
+                                                       y_train, X_test)
         net = Net(in_channels, first, second, third, 0.0, 0.2, 0.2).to(device)
         optim = torch.optim.Adam(net.parameters(), lr=lr)
         train(net, epochs, optim, train_loader)
