@@ -11,6 +11,7 @@ from tqdm import tqdm
 from sklearn.ensemble import RandomForestRegressor
 import os
 from sklearn.svm import SVR
+from sklearn.svc import SVC
 
 
 def submit(survived_array, filename):
@@ -30,7 +31,7 @@ def submit(survived_array, filename):
         filename,
         index=False
     )
-    print('\nPredictions submitted to ' + filename)
+    print('Predictions submitted to ' + filename)
 
 
 def get_next_sub_name(path, sub):
@@ -50,7 +51,9 @@ if __name__ == '__main__':
     next_sub_id = get_next_sub_name(path, sub)
     for i in range(subs):
         penalty_for_missing_age, X_train, y_train, X_test = Preprocess()
-        reg = RandomForestRegressor(n_estimators=1000)
+        # reg = RandomForestRegressor(n_estimators=1000)
+        # reg = SVR(kernel='rbf')
+        reg = SVC(kernel='rbf')
         reg.fit(X_train, y_train)
         y_test = reg.predict(X_test)
         filename = path + 'sub' + str(next_sub_id + i) + '.csv'
