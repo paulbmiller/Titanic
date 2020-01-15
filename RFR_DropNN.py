@@ -235,9 +235,10 @@ if __name__ == '__main__':
     accs.sort(key=sort_accs, reverse=True)
     """
     # Standard run
-    sub = 42
-    subs = 1
+    sub = 47
+    subs = 3
     path = "F:\\Users\\SilentFart\\Documents\\PythonProjects\\Titanic\\subs\\"
+    next_sub_id = get_next_sub_name(path, sub)
     for i in range(subs):
         penalty_for_missing_age, X_train, y_train, X_test = Preprocess()
         train_loader, test_loader = create_dataloaders(mb_size, X_train,
@@ -245,8 +246,5 @@ if __name__ == '__main__':
         net = Net(in_channels, first, second, third, 0.0, 0.2, 0.2).to(device)
         optim = torch.optim.Adam(net.parameters(), lr=lr)
         train(net, epochs, optim, train_loader)
-        filename = path
-        filename += 'sub'
-        filename += str(sub + i)
-        filename += '.csv'
+        filename = path + 'sub' + str(next_sub_id + i) + '.csv'
         submit(net, test_loader, filename)
