@@ -5,12 +5,9 @@ the train and test loaders.
 The function encodes the name into a title, encodes categorical data, replaces
 cabin names by the number of cabins for each passenger.
 """
-import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.preprocessing import StandardScaler
-import torch
-from torch.utils.data import DataLoader, TensorDataset
+from sklearn.preprocessing import MinMaxScaler
 
 # * Survival - Survival (0=No, 1=Yes)
 # * Pclass - Ticket class
@@ -36,20 +33,20 @@ from torch.utils.data import DataLoader, TensorDataset
 #              - S = Southampton
 
 
-def Preprocess():
+def preprocess():
     """
-
-    Parameters
-    ----------
-    mb_size : int
-        Minibatch size for the dataloaders.
+    Preprocessing phase, cleaning and completing data.
 
     Returns
     -------
-    train_loader : torch.utils.data.DataLoader
-        DataLoader for the training set.
-    test_loader : torch.utils.data.DataLoader
-        DataLoader for the test set.
+    bias_na : pandas Series
+        Penalty for values which miss the age feature.
+    training_set : pandas DataFrame
+        Training set features.
+    y_train : pandas Series
+        Training set target.
+    test_set : pandas DataFrame
+        Test set features.
 
     """
     training_set = pd.read_csv('train.csv')
@@ -209,7 +206,7 @@ def Preprocess():
             test_set.Age.isna()
             ].loc[:, test_set.columns != 'Age'])
 
-    # Scale Age and Fare columns
+    # Bin Age column with Qcut/cut
     training_set.loc[:, 'Age'], bins = pd.qcut(training_set.Age, 10,
                                                labels=False, retbins=True)
     bins[0] = 0.
@@ -217,5 +214,12 @@ def Preprocess():
     test_set.loc[:, 'Age'] = pd.cut(test_set.Age, bins=bins, labels=False)
     training_set.fillna(10, inplace=True)
     test_set.fillna(10, inplace=True)
+
+    # Scales values between 0 and 1
+    mmsc = MinMaxScaler()
+    training_set[['Age', 'SibSp', 'Parch', 'Cabin']] = mmsc.fit_transform(
+        training_set[['Age', 'SibSp', 'Parch', 'Cabin']])
+    test_set[['Age', 'SibSp', 'Parch', 'Cabin']] = mmsc.transform(
+        test_set[['Age', 'SibSp', 'Parch', 'Cabin']])
 
     return bias_na, training_set, y_train, test_set

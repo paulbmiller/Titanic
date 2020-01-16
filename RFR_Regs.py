@@ -3,20 +3,32 @@
 Use of Random Forest Regression to fill missing age values and another RFR to
 predict if a survivor survived.
 """
-import numpy as np
 import pandas as pd
-from preprocess import Preprocess
-from sklearn.model_selection import KFold
-from tqdm import tqdm
-from sklearn.ensemble import RandomForestRegressor
+from preprocessing import preprocess
 import os
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.svm import SVR
-from sklearn.svc import SVC
+from sklearn.svm import SVC
 
 
 def submit(survived_array, filename):
+    """
+    Returns the prediction array to the output file with ´filename´.
+
+    Parameters
+    ----------
+    survived_array : numpy.ndarray
+        Prediction array of values between 0 and 1.
+    filename : string
+        Name of the submission file.
+
+    Returns
+    -------
+    None.
+
+    """
     # Add a penalty if the age value is missing
-    survived_array -= penalty_for_missing_age * 0
+    # survived_array -= penalty_for_missing_age * 0.0
     survived_array = survived_array > 0.5
 
     # Get the passenger ids for the test set for submission
@@ -35,9 +47,28 @@ def submit(survived_array, filename):
 
 
 def get_next_sub_name(path, sub):
+    """
+    Checks to see if the submission ´sub´ already exists in the submission
+    folder. If it already exists, it will call itself with ´sub + 1´ until it
+    finds a number which hasn't already been created. In the other case, it
+    will return the number ´sub´.
+
+    Parameters
+    ----------
+    path : string
+        Path to the file submission folder.
+    sub : int
+        Number of the submission we are checking.
+
+    Returns
+    -------
+    int
+        Number of the next submission.
+
+    """
     sub_name = 'sub' + str(sub) + '.csv'
     if os.path.exists(path + sub_name):
-        print('{} already exists'.format(sub_name))
+        # print('{} already exists'.format(sub_name))
         return get_next_sub_name(path, sub + 1)
     else:
         return sub
@@ -45,13 +76,13 @@ def get_next_sub_name(path, sub):
 
 if __name__ == '__main__':
     # Standard run
-    sub = 47
+    sub = 56
     subs = 1
     path = "F:\\Users\\SilentFart\\Documents\\PythonProjects\\Titanic\\subs\\"
     next_sub_id = get_next_sub_name(path, sub)
     for i in range(subs):
-        penalty_for_missing_age, X_train, y_train, X_test = Preprocess()
-        # reg = RandomForestRegressor(n_estimators=1000)
+        penalty_for_missing_age, X_train, y_train, X_test = preprocess()
+        # reg = RandomForestRegressor(n_estimators=10000)
         # reg = SVR(kernel='rbf')
         reg = SVC(kernel='rbf')
         reg.fit(X_train, y_train)

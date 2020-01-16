@@ -8,11 +8,12 @@ import pandas as pd
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from preprocess import Preprocess
+from preprocessing import preprocess
 from copy import deepcopy
 from sklearn.model_selection import KFold
 from torch.utils.data import DataLoader, TensorDataset
 from tqdm import tqdm
+import os
 
 # -------- Constants --------
 in_channels = 18  # Result of preprocessing
@@ -53,8 +54,57 @@ class Net(nn.Module):
         return self.model(x)
 
 
+def get_next_sub_name(path, sub):
+    """
+    Checks to see if the submission ´sub´ already exists in the submission
+    folder. If it already exists, it will call itself with ´sub + 1´ until it
+    finds a number which hasn't already been created. In the other case, it
+    will return the number ´sub´.
+
+    Parameters
+    ----------
+    path : string
+        Path to the file submission folder.
+    sub : int
+        Number of the submission we are checking.
+
+    Returns
+    -------
+    int
+        Number of the next submission.
+
+    """
+    sub_name = 'sub' + str(sub) + '.csv'
+    if os.path.exists(path + sub_name):
+        print('{} already exists'.format(sub_name))
+        return get_next_sub_name(path, sub + 1)
+    else:
+        return sub
+
+
 def create_dataloaders(mb_size, X_train, y_train, X_test):
-    # Create both dataloaders
+    """
+    Create the training and testing dataloaders.
+
+    Parameters
+    ----------
+    mb_size : int
+        Mini-batch size.
+    X_train : pandas DataFrame
+        Training set features.
+    y_train : pandas Series
+        Training set target.
+    X_test : pandas DataFrame
+        Test set features.
+
+    Returns
+    -------
+    train_loader : torch DataLoader
+        Torch DataLoader for the training set.
+    test_loader : torch DataLoader
+        Torch DataLoader for the test set.
+
+    """
     train = TensorDataset(torch.Tensor(np.array(X_train)),
                           torch.Tensor(np.array(y_train)))
     train_loader = DataLoader(train, batch_size=mb_size, shuffle=True)
@@ -64,6 +114,25 @@ def create_dataloaders(mb_size, X_train, y_train, X_test):
 
 
 def train(net, epochs, optim, train_loader):
+    """
+    Standard training routine.
+
+    Parameters
+    ----------
+    net : Net
+        Instance of the Net class, child of the torch.nn.Module.
+    epochs : int
+        Number of training epochs.
+    optim : torch.optim child
+        Optimizer object.
+    train_loader : DataLoader
+        Torch DataLoader for the training set.
+
+    Returns
+    -------
+    None.
+
+    """
     net.train()
     for epoch in tqdm(range(1, epochs+1), desc='Training', unit=' ep'):
         running_loss = 0.0
@@ -90,6 +159,34 @@ def train(net, epochs, optim, train_loader):
 
 def cross_val(net, opt, eps, X_train, y_train, k_folds, init_state,
               init_state_opt):
+    """
+    Cross validation implementation using ´k_folds´ number of folds.
+
+    Parameters
+    ----------
+    net : Net
+        Instance of the Net class, child of the torch.nn.Module.
+    opt : torch.optim child
+        Optimizer object.
+    eps : int
+        Number of training epochs.
+    X_train : pandas DataFrame
+        Training set features.
+    y_train : pandas Series
+        Training set target vector.
+    k_folds : int
+        Number of cross validation folds.
+    init_state : collections.OrderedDict
+        Initial state of the neural net to reset after each fold.
+    init_state_opt : dict
+        Initial state of the optimizer to reset after each fold.
+
+    Returns
+    -------
+    test_accs : numpy.ndarray
+        Accuracies of each fold.
+
+    """
     fold_cntr = 0
     test_accs = np.zeros(k_folds)
     kf = KFold(n_splits=k_folds)
@@ -154,6 +251,21 @@ def cross_val(net, opt, eps, X_train, y_train, k_folds, init_state,
 
 
 def submit(net, test_loader, filename):
+    """
+    Returns the prediction array to the output file with ´filename´.
+
+    Parameters
+    ----------
+    survived_array : numpy.ndarray
+        Prediction array of values between 0 and 1.
+    filename : string
+        Name of the submission file.
+
+    Returns
+    -------
+    None.
+
+    """
     survived_array = np.array([])
     net.eval()
     for i, [data] in enumerate(test_loader):
@@ -163,7 +275,7 @@ def submit(net, test_loader, filename):
         survived_array = np.append(survived_array, survived)
 
     # Add a penalty if the age value is missing
-    survived_array -= penalty_for_missing_age * 0
+    # survived_array -= penalty_for_missing_age * 0
     survived_array = survived_array > 0.5
 
     # Get the passenger ids for the test set for submission
@@ -181,7 +293,33 @@ def submit(net, test_loader, filename):
     print('\nPredictions submitted to ' + filename)
 
 
-def test(net, epochs, lr, mb_size, accs, opt, net_array):
+def test(net, epochs, lr, mb_size, accs, opt, net_list):
+    """
+    Gets the initial state of the neural net and optimizer and starts cross
+    validation.
+
+    Parameters
+    ----------
+    net : Net
+        Instance of the Net class, child of the torch.nn.Module.
+    epochs : int
+        Number of training epochs.
+    lr : float
+        Learning rate to be passed to the optimizer.
+    mb_size : int
+        Mini-batch size.
+    accs : list
+        List to contain the accuracy results from cross validation.
+    opt : string
+        Name of the optimizer to be used.
+    net_list : list
+        Basic information about the neural net (neuron numbers and drop rates).
+
+    Returns
+    -------
+    None.
+
+    """
     if opt == 'Adam':
         optim = torch.optim.Adam(net.parameters(), lr=lr)
     elif opt == 'RMSprop':
@@ -194,14 +332,16 @@ def test(net, epochs, lr, mb_size, accs, opt, net_array):
     init = deepcopy(net.state_dict())
     init_opt = deepcopy(optim.state_dict())
     acc = cross_val(net, optim, epochs, X_train, y_train, 10, init, init_opt)
-    accs.append([epochs, lr, mb_size, opt, acc.mean(), acc.std(), net_array])
+    accs.append([epochs, lr, mb_size, opt, acc.mean(), acc.std(), net_list])
 
 
 def sort_accs(li):
+    # function used as key to the sort method to sort grid search accs
     return li[4]
 
 
 def accs_to_file(accs):
+    # Appends accuracies of grid search to file
     with open('results.txt', 'a') as f:
         f.write('\nout:\n')
         for acc in accs:
@@ -235,12 +375,12 @@ if __name__ == '__main__':
     accs.sort(key=sort_accs, reverse=True)
     """
     # Standard run
-    sub = 47
-    subs = 3
+    sub = 53
+    subs = 1
     path = "F:\\Users\\SilentFart\\Documents\\PythonProjects\\Titanic\\subs\\"
     next_sub_id = get_next_sub_name(path, sub)
     for i in range(subs):
-        penalty_for_missing_age, X_train, y_train, X_test = Preprocess()
+        penalty_for_missing_age, X_train, y_train, X_test = preprocess()
         train_loader, test_loader = create_dataloaders(mb_size, X_train,
                                                        y_train, X_test)
         net = Net(in_channels, first, second, third, 0.0, 0.2, 0.2).to(device)
