@@ -113,7 +113,7 @@ def create_dataloaders(mb_size, X_train, y_train, X_test):
     return train_loader, test_loader
 
 
-def train(net, epochs, optim, train_loader):
+def train(net, epochs, optim, train_loader, loss_fn=F.binary_cross_entropy):
     """
     Standard training routine.
 
@@ -136,25 +136,19 @@ def train(net, epochs, optim, train_loader):
     net.train()
     for epoch in tqdm(range(1, epochs+1), desc='Training', unit=' ep'):
         running_loss = 0.0
-        right_predictions = 0
         for i, (data, survived) in enumerate(train_loader):
             data = data.to(device)
             survived = survived.to(device)
             mb = data.size(0)
             y_pred = net(data).reshape(-1)
 
-            loss = F.binary_cross_entropy(y_pred, survived)
+            loss = loss_fn(y_pred, survived)
             optim.zero_grad()
             loss.backward()
             optim.step()
             running_loss += loss.item()
-
             survived_bool = survived == 1
             proj = y_pred.cpu() > 0.5
-            for j in range(mb):
-                if proj[j] == survived_bool[j].cpu():
-                    right_predictions += 1
-        # acc = right_predictions / training_size
 
 
 def cross_val(net, opt, eps, X_train, y_train, k_folds, init_state,
@@ -205,7 +199,7 @@ def cross_val(net, opt, eps, X_train, y_train, k_folds, init_state,
         val_loader = DataLoader(val, batch_size=mb_size, shuffle=False)
         net.train()
         str_desc = 'Fold ' + str(fold_cntr+1) + " / " + str(k_folds)
-        for epoch in tqdm(range(1, epochs+1), desc=str_desc, unit=' ep'):
+        for epoch in tqdm(range(1, eps+1), desc=str_desc, unit=' ep'):
             running_loss = 0.0
             for i, (data, survived) in enumerate(train_loader):
                 data = data.to(device)
