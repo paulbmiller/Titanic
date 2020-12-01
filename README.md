@@ -9,10 +9,19 @@ It also extracts the number of cabins for passengers, assumes NaN values represe
 
 ## RFR_DropNN
 The file RFR_DropNN uses a 3-layered Neural Network with dropout to predict survival.
+It achieves around 78% accuracy.
 
 ## RFR_Regs
 The file RFR_Regs can use different regressors/classifiers from the sklearn library, such as the RandomForestRegressor, SVR and SVM models.
+Random Forest achieves around 75.6% accuracy.
+SVR achieves around 77.5% accuracy.
+SVM achieves around 77.5% accuracy.
+SVC achieves around 78.2% accuracy.
 
 ## RFR_GradientBoosting
 The file RFR_GradientBoosting uses the Gradient Boosting classifier from sklearn and a grid search implementation.
 It achieves around 75.5% accuracy.
+
+## Further work
+- Try different methods for filling in missing values
+- Implement grid search for RFR_Regs

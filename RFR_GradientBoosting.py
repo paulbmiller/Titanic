@@ -10,6 +10,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.ensemble import GradientBoostingClassifier
 from tqdm import tqdm
 from itertools import product
+from sklearn.metrics import r2_score
 
 
 def submit(n_estimators, lr, feat, depth, X_train, y_train, X_test, filename):
@@ -70,25 +71,24 @@ def submit(n_estimators, lr, feat, depth, X_train, y_train, X_test, filename):
 
 
 if __name__ == '__main__':
-    # Standard run
     penalty_for_missing_age, X_train_val, y_train_val, X_test = preprocess()
-
+    
+    """
     # Grid search
     # Overrides current results in GridSearch
-    """
     X_train, X_val, y_train, y_val = train_test_split(X_train_val, y_train_val,
-                                                      test_size=val_size)
+                                                      test_size=0.2)
     
-    estimators = [50, 100, 150, 200, 250, 300, 350, 400, 450, 500]
-    lrs = [0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1, 0.11,
-           0.12, 0.13, 0.14, 0.15, 0.2]
-    feats = [2, 3, 5, 7, 10, 15]
+    estimators = [300, 350, 400, 450, 500]
+    lrs = [0.1, 0.125, 0.15, 0.175, 0.2]
+    feats = [5, 7, 10, 15, 18]   # 18 maximum from preprocessing
     depths = [2, 3, 5, 7, 10]
     
     gboost_results_fn = 'GBoostResults.csv'
     col_names = ['n_estimators', 'lr', 'max_features', 'max_depth',
-                 'train acc', 'test acc']
+                 'train acc', 'test acc', 'R2 score']
     
+    # Could program this to not overwrite and read in results
     results_arr = None
     
     models = [model_params for model_params in product(estimators, lrs,
@@ -110,23 +110,27 @@ if __name__ == '__main__':
                                                    feat,
                                                    depth,
                                                    gb.score(X_train, y_train),
-                                                   gb.score(X_val, y_val)]])
+                                                   gb.score(X_val, y_val),
+                                                   r2_score(y_train,
+                                                            gb.predict(
+                                                                X_train))]])
         else:
             results_arr = [n_estimators, lr, feat, depth,
-                           gb.score(X_train, y_train), gb.score(X_val, y_val)]
+                           gb.score(X_train, y_train), gb.score(X_val, y_val),
+                           r2_score(y_train, gb.predict(X_train))]
 
     df = pd.DataFrame(data=results_arr, columns=col_names)
-    df = df.sort_values(['test acc', 'train acc'], ascending=False)
+    df = df.sort_values(['R2 score', 'test acc', 'train acc'], ascending=False)
     df.to_csv(gboost_results_fn)
     print("\nGrid search results stored in file {}".format(
         gboost_results_fn))
-    """
     
+    """
     # Create prediction submission
     path = 'subs//'
-    sub_nb = 58
+    sub_nb = 69
     
     filename = path + 'sub' + str(sub_nb) + '.csv'
-    submit(350, 0.11, 5, 3, X_train_val, y_train_val, X_test, filename)
+    submit(450, 0.125, 5, 7, X_train_val, y_train_val, X_test, filename)
     
     

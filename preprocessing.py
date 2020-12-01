@@ -33,7 +33,7 @@ from sklearn.preprocessing import MinMaxScaler
 #              - S = Southampton
 
 
-def preprocess():
+def preprocess(cabin_nan_val='', n_estim_age=10000):
     """
     Preprocessing phase, cleaning and completing data.
 
@@ -75,16 +75,24 @@ def preprocess():
     nan_ages = test_set.Age.isna()
     bias_na = nan_ages * bias_na
 
-    # Get the number of cabins and suppose NaN values mean 1 cabin
-    training_set.Cabin = training_set.Cabin.fillna(1)
+    # Get the number of cabins
+    """
+    I keep this value even though only 2% of training values have values
+    other than one, because people with values other than 1 have about 20.5%
+    better survival rate.
+    
+    It also fills NaN values with a value slightly less than 1 to correct for
+    8% survival rate difference.
+    """
+    training_set.Cabin = training_set.Cabin.fillna(cabin_nan_val)
     training_set.loc[training_set.Cabin != 1, 'Cabin'] = \
         training_set.loc[
             training_set.Cabin != 1, 'Cabin'
-            ].apply(lambda x: len(x.split(' ')))
-    test_set.Cabin = test_set.Cabin.fillna(1)
+            ].apply(lambda x: len(x.split()))
+    test_set.Cabin = test_set.Cabin.fillna(cabin_nan_val)
     test_set.loc[test_set.Cabin != 1, 'Cabin'] = \
         test_set.loc[test_set.Cabin != 1, 'Cabin'].apply(lambda x:
-                                                         len(x.split(' ')))
+                                                         len(x.split()))
 
     # Replace the fare nan values by the mean fare of 3rd class (which is
     # sufficient because there is only one from 3rd class) and replace the 0
@@ -98,8 +106,8 @@ def preprocess():
     mean_fare3 = training_set.Fare[
         training_set.Pclass == 3
         ][training_set.Cabin == 1].mean()
-    training_set.Fare.fillna(0, inplace=True)
-    test_set.Fare.fillna(0, inplace=True)
+    training_set.Fare.fillna(0., inplace=True)
+    test_set.Fare.fillna(0., inplace=True)
     train0 = training_set.index[training_set.loc[:, 'Fare'] == 0].tolist()
     test0 = test_set.index[test_set.loc[:, 'Fare'] == 0].tolist()
     for i in train0:
@@ -128,6 +136,7 @@ def preprocess():
     bins[5] = 1000.
     test_set.loc[:, 'Fare'] = pd.cut(test_set.Fare, bins=bins,
                                      labels=False)
+    test_set.Fare.fillna(0., inplace=True)
     test_set.Fare = test_set.Fare.astype(int)
 
     training_set = pd.get_dummies(training_set, columns=['Fare'])
@@ -190,7 +199,7 @@ def preprocess():
     test_set = test_set.drop('Ticket', axis=1)
 
     # Use Random Forest Regression to predict the missing ages of passengers
-    reg = RandomForestRegressor(n_estimators=10000)
+    reg = RandomForestRegressor(n_estimators=n_estim_age)
     reg.fit(training_set[
         training_set.Age.notna()
         ].loc[:, training_set.columns != 'Age'],

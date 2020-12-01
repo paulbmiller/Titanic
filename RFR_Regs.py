@@ -76,15 +76,15 @@ def get_next_sub_name(path, sub):
 
 if __name__ == '__main__':
     # Standard run
-    sub = 56
+    sub = 69
     subs = 1
-    path = "F:\\Users\\SilentFart\\Documents\\PythonProjects\\Titanic\\subs\\"
+    path = "subs\\"
     next_sub_id = get_next_sub_name(path, sub)
     for i in range(subs):
         penalty_for_missing_age, X_train, y_train, X_test = preprocess()
-        # reg = RandomForestRegressor(n_estimators=10000)
+        reg = RandomForestRegressor(n_estimators=10000)
         # reg = SVR(kernel='rbf')
-        reg = SVC(kernel='rbf')
+        # reg = SVC(kernel='rbf')
         reg.fit(X_train, y_train)
         y_test = reg.predict(X_test)
         filename = path + 'sub' + str(next_sub_id + i) + '.csv'

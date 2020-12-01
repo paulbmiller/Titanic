@@ -369,8 +369,8 @@ if __name__ == '__main__':
     accs.sort(key=sort_accs, reverse=True)
     """
     # Standard run
-    sub = 53
-    subs = 1
+    sub = 59
+    subs = 3
     path = "F:\\Users\\SilentFart\\Documents\\PythonProjects\\Titanic\\subs\\"
     next_sub_id = get_next_sub_name(path, sub)
     for i in range(subs):
