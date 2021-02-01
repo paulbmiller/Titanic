@@ -3,25 +3,36 @@
 ## Description
 This is my approach to the "Titanic: Machine Learning from Disaster" competition from Kaggle (https://www.kaggle.com/c/titanic). The goal of the competition is to predict which passengers survived the shipwreck.
 
-It uses Random Forest Regression to predict the missing values for the age of some passengers.
+## Given Data
+Variable ¦ Definition ¦ Key
+-------- ¦ ---------- ¦ ---
+survival ¦ Survival ¦ 0 = No, 1 = Yes
+pclass ¦ Ticket class ¦ 1 = 1st, 2 = 2nd, 3 = 3rd
+sex ¦ Sex ¦ 
+Age ¦ Age in years ¦ 
+sibsp ¦ # of siblings / spouses aboard the Titanic ¦ 
+parch ¦ # of parents / children aboard the Titanic ¦ 
+ticket ¦ Ticket number ¦ 
+fare ¦ Passenger fare ¦ 
+cabin ¦ Cabin number ¦ 
+embarked ¦ Port of Embarkation ¦ C = Cherbourg, Q = Queenstown, S = Southampton
 
-It also extracts the number of cabins for passengers, assumes NaN values represent only one cabin, uses Qcut to bin age and fare data into categorical variables.
+Training set contains 891 values (I use 889 of them, because 2 are missing a value for embarked) and test set contains 491.
 
-## RFR_DropNN
-The file RFR_DropNN uses a 3-layered Neural Network with dropout to predict survival.
-It achieves around 78% accuracy.
+Using insights from Tableau worksheets and chi-squared tests, I reduced the given data to 16 features and then tried different models for submissions.
 
-## RFR_Regs
-The file RFR_Regs can use different regressors/classifiers from the sklearn library, such as the RandomForestRegressor, SVR and SVM models.
-Random Forest achieves around 75.6% accuracy.
-SVR achieves around 77.5% accuracy.
-SVM achieves around 77.5% accuracy.
-SVC achieves around 78.2% accuracy.
+## DropNN
+The file DropNN uses a 3-layered Neural Network with dropout to predict survival and grid search, which achieves around 77% accuracy.
 
-## RFR_GradientBoosting
-The file RFR_GradientBoosting uses the Gradient Boosting classifier from sklearn and a grid search implementation.
-It achieves around 75.5% accuracy.
+## Regs
+The file Regs can use different regressors/classifiers from the sklearn library, such as the RandomForestRegressor, SVR and SVM models.
 
-## Further work
-- Try different methods for filling in missing values
+## GradientBoosting
+The file GradientBoosting uses the Gradient Boosting classifier from sklearn and grid search.
+
+## Ideas for further work
 - Implement grid search for RFR_Regs
+- Clean code
+- Implement different models
+- Visualisation of results from grid search
+- Save readable results from grid search for DropNN

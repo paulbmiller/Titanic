@@ -1,13 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-Module containing the preprocessing and the function Preprocess which returns
-the train and test loaders.
-The function encodes the name into a title, encodes categorical data, replaces
-cabin names by the number of cabins for each passenger.
+Module containing the preprocessing and the function preprocess which returns
+the train and test pandas dataframes.
+The function encodes the name into a title, encodes categorical data, reduces
+the data down to 16 boolean variables.
 """
 import pandas as pd
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.preprocessing import MinMaxScaler
 
 # * Survival - Survival (0=No, 1=Yes)
 # * Pclass - Ticket class
@@ -33,14 +31,18 @@ from sklearn.preprocessing import MinMaxScaler
 #              - S = Southampton
 
 
-def preprocess(cabin_nan_val='', n_estim_age=10000):
+def preprocess(title_min_occ=5):
     """
     Preprocessing phase, cleaning and completing data.
 
+    Parameters
+    ----------
+    title_min_occ : int, optional
+        Minimum occurences of a title for it to be stripped from the name.
+        The default is 5.
+
     Returns
     -------
-    bias_na : pandas Series
-        Penalty for values which miss the age feature.
     training_set : pandas DataFrame
         Training set features.
     y_train : pandas Series
@@ -57,97 +59,64 @@ def preprocess(cabin_nan_val='', n_estim_age=10000):
     training_set.replace(cleanup_sex, inplace=True)
     test_set.replace(cleanup_sex, inplace=True)
 
-    # Encode categorical data for Embarked and avoid dummy trap
-    # Replaces the two missing values by the most common one ('S')
+    """
+    Encode categorical data for Embarked and avoid dummy trap.
+    
+    We drop the two rows which have no value for embarked, since the chi-
+    squared test reveals that the port is statistically significant and
+    there are no null values for embarcation in the test set.
+    """
+    training_set.dropna(subset=['Embarked'], inplace=True)
+    training_set.reset_index(drop=True, inplace=True)
     training_set = pd.get_dummies(training_set, columns=['Embarked'])
     test_set = pd.get_dummies(test_set, columns=['Embarked'])
-    training_set = training_set.drop('Embarked_S', axis=1)
-    test_set = test_set.drop('Embarked_S', axis=1)
+    training_set.drop('Embarked_S', axis=1, inplace=True)
+    test_set.drop('Embarked_S', axis=1, inplace=True)
 
-    # Get the people that have missing values for age in the test set and store
-    # the mean difference in probability to survive solely based on missing
-    # age (people with age missing are less likely to have survived by about
-    # 11%). This value will be substracted at test time
-    mean_na_survived = training_set.Survived[training_set.Age.isna()].mean()
-    mean_notna_survived = \
-        training_set.Survived[training_set.Age.notna()].mean()
-    bias_na = mean_notna_survived - mean_na_survived
-    nan_ages = test_set.Age.isna()
-    bias_na = nan_ages * bias_na
 
-    # Get the number of cabins
     """
-    I keep this value even though only 2% of training values have values
-    other than one, because people with values other than 1 have about 20.5%
-    better survival rate.
+    Since the Chi-Squared test reveals a significant difference for age, I
+    decided to encode passengers in 4 age groups :
+        - Less than 16
+        - Between 16 (inclusive) and 60 (inclusive)
+        - More than 60
+        - Null values (since they have lower survival rate)
+    To avoid the dummy variable trap, we do not include a null age column.
+    """
+    for ds in [training_set, test_set]:
+        ds['Child'] = (ds.Age < 16).astype(int)
+        ds['Adult'] = (ds.Age.between(16, 60)).astype(int)
+        ds['Senior'] = (ds.Age > 60).astype(int)
     
-    It also fills NaN values with a value slightly less than 1 to correct for
-    8% survival rate difference.
+    training_set.drop('Age', axis=1, inplace=True)
+    test_set.drop('Age', axis=1, inplace=True)
+    
     """
-    training_set.Cabin = training_set.Cabin.fillna(cabin_nan_val)
-    training_set.loc[training_set.Cabin != 1, 'Cabin'] = \
-        training_set.loc[
-            training_set.Cabin != 1, 'Cabin'
-            ].apply(lambda x: len(x.split()))
-    test_set.Cabin = test_set.Cabin.fillna(cabin_nan_val)
-    test_set.loc[test_set.Cabin != 1, 'Cabin'] = \
-        test_set.loc[test_set.Cabin != 1, 'Cabin'].apply(lambda x:
-                                                         len(x.split()))
+    Since the Chi-Squared test reveals a significant difference in survival
+    rate when the cabin value is null, we just reduce this variable to a bool
+    column.
+    """
+    training_set.Cabin = training_set.Cabin.isna().astype(int)
+    test_set.Cabin = test_set.Cabin.isna().astype(int)
 
-    # Replace the fare nan values by the mean fare of 3rd class (which is
-    # sufficient because there is only one from 3rd class) and replace the 0
-    # values by the mean of values of that class times the number of cabins
-    mean_fare1 = training_set.Fare[
-        training_set.Pclass == 1
-        ][training_set.Cabin == 1].mean()
-    mean_fare2 = training_set.Fare[
-        training_set.Pclass == 2
-        ][training_set.Cabin == 1].mean()
-    mean_fare3 = training_set.Fare[
-        training_set.Pclass == 3
-        ][training_set.Cabin == 1].mean()
-    training_set.Fare.fillna(0., inplace=True)
-    test_set.Fare.fillna(0., inplace=True)
-    train0 = training_set.index[training_set.loc[:, 'Fare'] == 0].tolist()
-    test0 = test_set.index[test_set.loc[:, 'Fare'] == 0].tolist()
-    for i in train0:
-        if training_set.loc[i, 'Pclass'] == 1:
-            training_set.loc[i, 'Fare'] = \
-                mean_fare1 * training_set.loc[i, 'Cabin']
-        elif training_set.loc[i, 'Pclass'] == 2:
-            training_set.loc[i, 'Fare'] = \
-                mean_fare2 * training_set.loc[i, 'Cabin']
-        else:
-            training_set.loc[i, 'Fare'] = \
-                mean_fare3 * training_set.loc[i, 'Cabin']
-    for i in test0:
-        if test_set.loc[i, 'Pclass'] == 1:
-            test_set.loc[i, 'Fare'] = \
-                mean_fare1 * test_set.loc[i, 'Cabin']
-        elif test_set.loc[i, 'Pclass'] == 2:
-            test_set.loc[i, 'Fare'] = \
-                mean_fare2 * test_set.loc[i, 'Cabin']
-        else:
-            test_set.loc[i, 'Fare'] = \
-                mean_fare3 * test_set.loc[i, 'Cabin']
-    training_set.loc[:, 'Fare'], bins = pd.qcut(training_set.Fare, 5,
-                                                labels=False, retbins=True)
-    bins[0] = 0.
-    bins[5] = 1000.
-    test_set.loc[:, 'Fare'] = pd.cut(test_set.Fare, bins=bins,
-                                     labels=False)
-    test_set.Fare.fillna(0., inplace=True)
-    test_set.Fare = test_set.Fare.astype(int)
-
-    training_set = pd.get_dummies(training_set, columns=['Fare'])
-    test_set = pd.get_dummies(test_set, columns=['Fare'])
-    training_set = training_set.drop('Fare_4', axis=1)
-    test_set = test_set.drop('Fare_4', axis=1)
+    """
+    I decided to drop the fare values, because the fare is in great part tied
+    to the class which is contained in the Pclass column.
+    """
+    training_set.drop('Fare', axis=1, inplace=True)
+    test_set.drop('Fare', axis=1, inplace=True)
 
     # Get the training set targets
     y_train = training_set.Survived
     training_set = training_set.drop('Survived', axis=1)
 
+    """
+    For names, I decided to just strip the titles from the names and use the
+    values appearing at least 5 times.
+    
+    It would be interesting to see if the differences between these groups are
+    statistically significant (TODO).
+    """
     # Reduce names to titles
     training_set.Name = \
         training_set.Name.apply(lambda x: x[0: x.find('.')].split(' ')[-1])
@@ -157,32 +126,28 @@ def preprocess(cabin_nan_val='', n_estim_age=10000):
 
     # Replace titles appearing less than 5 times in the training set by Mr/Mrs
     for i in range(len(training_set)):
-        if training_set.loc[i, 'Sex'] == 0:
-            title = training_set.Name.loc[i]
-            try:
-                if training_set.Name.value_counts()[title] <= 5:
-                    training_set.loc[i, 'Name'] = 'Mr'
-            except KeyError:
-                training_set.loc[i, 'Name'] = 'Mrs'
+        title = training_set.Name.iloc[i]
+        if training_set.Sex.iloc[i] == 0:
+            if training_set.Name.value_counts()[title] < title_min_occ:
+                training_set.Name.replace(title, 'Mr', inplace=True)
         else:
-            title = training_set.Name.loc[i]
-            try:
-                if training_set.Name.value_counts()[title] <= 5:
-                    training_set.loc[i, 'Name'] = 'Mrs'
-            except KeyError:
-                training_set.loc[i, 'Name'] = 'Mrs'
+            if training_set.Name.value_counts()[title] < title_min_occ:
+                training_set.Name.replace(title, 'Mrs', inplace=True)
 
     set_titles = set(training_set.Name)
     for i in range(len(test_set)):
-        if test_set.loc[i, 'Sex'] == 0:
-            if test_set.loc[i, 'Name'] not in set_titles:
-                test_set.loc[i, 'Name'] = 'Mr'
+        title = test_set.loc[i, 'Name']
+        if test_set.Sex.iloc[i] == 0:
+            if title not in set_titles:
+                test_set.Name.replace(title, 'Mr', inplace=True)
         else:
-            if test_set.loc[i, 'Name'] not in set_titles:
-                test_set.loc[i, 'Name'] = 'Mrs'
+            if title not in set_titles:
+                test_set.Name.replace(title, 'Mrs', inplace=True)
 
     training_set = pd.get_dummies(training_set, columns=['Name'])
     test_set = pd.get_dummies(test_set, columns=['Name'])
+    
+    # Avoid dummy variable trap
     training_set = training_set.drop('Name_Mr', axis=1)
     test_set = test_set.drop('Name_Mr', axis=1)
 
@@ -193,42 +158,17 @@ def preprocess(cabin_nan_val='', n_estim_age=10000):
     test_set = test_set.drop('Pclass_3', axis=1)
 
     # Drop the passenger id and ticket columns
-    training_set = training_set.drop('PassengerId', axis=1)
-    training_set = training_set.drop('Ticket', axis=1)
-    test_set = test_set.drop('PassengerId', axis=1)
-    test_set = test_set.drop('Ticket', axis=1)
+    training_set.drop('PassengerId', axis=1, inplace=True)
+    training_set.drop('Ticket', axis=1, inplace=True)
+    test_set.drop('PassengerId', axis=1, inplace=True)
+    test_set.drop('Ticket', axis=1, inplace=True)
 
-    # Use Random Forest Regression to predict the missing ages of passengers
-    reg = RandomForestRegressor(n_estimators=n_estim_age)
-    reg.fit(training_set[
-        training_set.Age.notna()
-        ].loc[:, training_set.columns != 'Age'],
-            training_set.Age[training_set.Age.notna()])
-    training_set.loc[training_set.Age.isna(), 'Age'] = \
-        reg.predict(
-            training_set[
-                training_set.Age.isna()
-                ].loc[:, training_set.columns != 'Age']
-            )
-    test_set.loc[test_set.Age.isna(), 'Age'] = \
-        reg.predict(test_set[
-            test_set.Age.isna()
-            ].loc[:, test_set.columns != 'Age'])
+    # Reduce number of siblings/spouses to bool
+    training_set['SibSp'] = (training_set['SibSp'] > 0).astype(int)
+    test_set['SibSp'] = (test_set['SibSp'] > 0).astype(int)
+    
+    # Reduce number of parents/children to bool
+    training_set['Parch'] = (training_set['Parch'] > 0).astype(int)
+    test_set['Parch'] = (test_set['Parch'] > 0).astype(int)
 
-    # Bin Age column with Qcut/cut
-    training_set.loc[:, 'Age'], bins = pd.qcut(training_set.Age, 10,
-                                               labels=False, retbins=True)
-    bins[0] = 0.
-    bins[10] = 150.0
-    test_set.loc[:, 'Age'] = pd.cut(test_set.Age, bins=bins, labels=False)
-    training_set.fillna(10, inplace=True)
-    test_set.fillna(10, inplace=True)
-
-    # Scales values between 0 and 1
-    mmsc = MinMaxScaler()
-    training_set[['Age', 'SibSp', 'Parch', 'Cabin']] = mmsc.fit_transform(
-        training_set[['Age', 'SibSp', 'Parch', 'Cabin']])
-    test_set[['Age', 'SibSp', 'Parch', 'Cabin']] = mmsc.transform(
-        test_set[['Age', 'SibSp', 'Parch', 'Cabin']])
-
-    return bias_na, training_set, y_train, test_set
+    return training_set, y_train, test_set

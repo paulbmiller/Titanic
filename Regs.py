@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Use of Random Forest Regression to fill missing age values and another RFR to
-predict if a survivor survived.
+Use of Random Forest Regression or SVMs to predict if a passenger survived.
 """
 import pandas as pd
 from preprocessing import preprocess
@@ -81,7 +80,7 @@ if __name__ == '__main__':
     path = "subs\\"
     next_sub_id = get_next_sub_name(path, sub)
     for i in range(subs):
-        penalty_for_missing_age, X_train, y_train, X_test = preprocess()
+        X_train, y_train, X_test = preprocess()
         reg = RandomForestRegressor(n_estimators=10000)
         # reg = SVR(kernel='rbf')
         # reg = SVC(kernel='rbf')

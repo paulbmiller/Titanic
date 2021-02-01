@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Use of Random Forest Regression to fill missing age values and Gradient
-Boosting to predict if a survivor survived.
+Use Gradient Boosting to predict if a passenger survived.
 """
 import numpy as np
 import pandas as pd
@@ -71,12 +70,12 @@ def submit(n_estimators, lr, feat, depth, X_train, y_train, X_test, filename):
 
 
 if __name__ == '__main__':
-    penalty_for_missing_age, X_train_val, y_train_val, X_test = preprocess()
+    X_train, y_train, X_test = preprocess()
     
     """
     # Grid search
     # Overrides current results in GridSearch
-    X_train, X_val, y_train, y_val = train_test_split(X_train_val, y_train_val,
+    X_train, X_val, y_train, y_val = train_test_split(X_train, y_train,
                                                       test_size=0.2)
     
     estimators = [300, 350, 400, 450, 500]
@@ -131,6 +130,6 @@ if __name__ == '__main__':
     sub_nb = 69
     
     filename = path + 'sub' + str(sub_nb) + '.csv'
-    submit(450, 0.125, 5, 7, X_train_val, y_train_val, X_test, filename)
+    submit(450, 0.125, 5, 7, X_train, y_train, X_test, filename)
     
     
