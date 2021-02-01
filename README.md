@@ -31,6 +31,7 @@ The file Regs can use different regressors/classifiers from the sklearn library,
 The file GradientBoosting uses the Gradient Boosting classifier from sklearn and grid search.
 
 ## Ideas for further work
+- Use one main file where you can choose what to routine to run
 - Implement grid search for RFR_Regs
 - Clean code
 - Implement different models
